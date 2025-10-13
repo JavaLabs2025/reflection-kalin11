@@ -11,13 +11,14 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 
 public class ReflectionUtil {
 
     private static final Logger log = LoggerFactory.getLogger(ReflectionUtil.class);
 
-    public static boolean isClassOrParentAnnotated(
+    public static Optional<Class<?>> getAnnotatedClass(
             final Class<?> clazz,
             final Class<? extends Annotation> annotation,
             final String packageName
@@ -36,15 +37,16 @@ public class ReflectionUtil {
 
         while (!clazzCopy.equals(Object.class)) {
             var implementedInterfaces = Arrays.asList(clazzCopy.getInterfaces());
+            if (isInterfaceAnnotated) {
+                return Optional.of(clazzCopy);
+            }
             if (clazzCopy.isAnnotationPresent(annotation) ||
-                    isInterfaceAnnotated ||
-                    implementedInterfaces.stream().anyMatch(i -> i.isAnnotationPresent(annotation))
-            ) {
-                return true;
+                    implementedInterfaces.stream().anyMatch(i -> i.isAnnotationPresent(annotation))) {
+                return Optional.of(clazz);
             }
             clazzCopy = clazzCopy.getSuperclass();
         }
-        return false;
+        return Optional.empty();
     }
 
     public static List<Class<?>> findAllInterfaceImplementations(Class<?> interfaceClass, String packageName) {
@@ -55,9 +57,9 @@ public class ReflectionUtil {
             return Collections.emptyList();
         }
 
-        File dir;
+        File directory;
         try {
-            dir = new File(resource.toURI());
+            directory = new File(resource.toURI());
         } catch (URISyntaxException e) {
             log.error("Invalid URI syntax: {}", e.getMessage());
             return Collections.emptyList();
@@ -65,7 +67,7 @@ public class ReflectionUtil {
 
         var implementations = new ArrayList<Class<?>>();
 
-        for (var file : Objects.requireNonNull(dir.listFiles())) {
+        for (var file : Objects.requireNonNull(directory.listFiles())) {
             if (file.getName().endsWith(".class")) {
                 var className = packageName + "." + file.getName().replace(".class", "");
                 try {
